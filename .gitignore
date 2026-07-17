@@ -163,3 +163,15 @@ cython_debug/
 #.idea/
 logs/
 tests/
+
+# Large model files
+docker/embedding/bge-large-zh-v1.5/pytorch_model.bin
+
+# IDE
+.idea/
+
+# Lock files
+uv.lock
+
+# Reports
+coverage_report.txt
