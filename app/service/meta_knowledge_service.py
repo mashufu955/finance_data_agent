@@ -219,7 +219,18 @@ class MetaKnowledgeService:
         await self.metric_qdrant_repository.upsert(ids, embeddings, payloads)
 
     async def build_meta_knowledge(self, config_file):
-        # 0.清空旧数据，避免重复主键冲突
+        # 0.确保表存在 → 清空旧数据，避免重复主键冲突
+        from app.models.mysql.base import Base
+        # 确保所有模型已导入（上面已导入，此处仅做保险）
+        assert TableInfoMySQL is not None
+        assert ColumnInfoMySQL is not None
+        assert MetricInfoMySQL is not None
+        assert ColumnMetricMySQL is not None
+
+        engine = self.meta_repository.session.bind
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
         from sqlalchemy import text
         async with self.meta_repository.session.begin():
             await self.meta_repository.session.execute(text('SET FOREIGN_KEY_CHECKS = 0'))
