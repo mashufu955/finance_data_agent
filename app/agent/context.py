@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+from app.clients.embedding_client import LocalTEIEmbeddings
 
 from app.repositories.es.value_es_repository import ValueESRepository
 from app.repositories.mysql.dw_mysql_repository import DWMySQLRepository
@@ -13,6 +13,6 @@ class DataAgentContext(TypedDict):
     metric_qdrant_repository: MetricQdrantRepository  # 指标向量库
     column_qdrant_repository: ColumnQdrantRepository  # 字段向量库
     value_es_repository: ValueESRepository  # 字段值全文检索库
-    embedding_client: HuggingFaceEndpointEmbeddings  # 向量服务客户端
+    embedding_client: LocalTEIEmbeddings  # 向量服务客户端
     meta_mysql_repository: MetaMySQLRepository  # 元数据MySQL库
     dw_mysql_repository: DWMySQLRepository  # 数据仓库MySQL库

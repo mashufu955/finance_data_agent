@@ -1,4 +1,4 @@
-"""Synchronous PyMySQL database module."""
+"""Synchronous PyMySQL database module for CRUD routers."""
 
 from __future__ import annotations
 
@@ -8,12 +8,16 @@ from typing import Any, Iterator
 import pymysql
 import pymysql.cursors
 
+from app.config.app_config import app_config
+
+_cfg = app_config.db_dw
+
 DB_CONFIG = dict(
-    host="127.0.0.1",
-    port=3306,
-    user="atguigu",
-    password="Atguigu.123",
-    database="dw",
+    host=_cfg.host,
+    port=_cfg.port,
+    user=_cfg.user,
+    password=str(_cfg.password),
+    database=_cfg.database,
     charset="utf8mb4",
     cursorclass=pymysql.cursors.DictCursor,
     autocommit=True,

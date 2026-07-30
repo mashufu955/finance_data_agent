@@ -3,35 +3,15 @@
 from __future__ import annotations
 
 import datetime
-import time
-from decimal import Decimal
-from typing import Any
 
 from fastapi import APIRouter, Request, HTTPException, Query
 
 from app.database import fetch_one, fetch_all, insert, execute
 from app.response import ok, list_ok
 from app.idempotency import check_idempotency, record_request
+from app.utils import gen_no, serialize_row, serialize_list
 
 router = APIRouter(tags=["transactions"])
-
-
-def gen_no(prefix: str) -> str:
-    return f"{prefix}{int(time.time() * 1000000)}"
-
-
-def _ser(v: Any) -> Any:
-    if isinstance(v, (Decimal, datetime.datetime, datetime.date)):
-        return str(v)
-    return v
-
-
-def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
-    return {k: _ser(v) for k, v in row.items()}
-
-
-def _serialize_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [_serialize_row(r) for r in rows]
 
 
 def _idem(request: Request) -> tuple[str, str]:
@@ -145,7 +125,7 @@ async def create_transaction(request: Request):
     )
 
     txn_row = fetch_one("SELECT * FROM account_transaction WHERE id = %s", (txn_id,))
-    response = ok(_serialize_row(txn_row))
+    response = ok(serialize_row(txn_row))
     record_request(request_no, channel_code, operator_no, body, response)
     return response
 
@@ -161,7 +141,7 @@ async def get_transaction(transaction_no: str):
     )
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    return ok(_serialize_row(row))
+    return ok(serialize_row(row))
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +166,7 @@ async def list_account_transactions(
         "ORDER BY created_at DESC LIMIT %s",
         (account["id"], account["id"], page_size),
     )
-    return list_ok(_serialize_rows(rows), total_count=total_count)
+    return list_ok(serialize_list(rows), total_count=total_count)
 
 
 # ---------------------------------------------------------------------------
@@ -211,4 +191,4 @@ async def list_account_ledgers(
         "ORDER BY created_at DESC LIMIT %s",
         (account["id"], page_size),
     )
-    return list_ok(_serialize_rows(rows), total_count=total_count)
+    return list_ok(serialize_list(rows), total_count=total_count)

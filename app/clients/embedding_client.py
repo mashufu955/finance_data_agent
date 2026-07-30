@@ -1,10 +1,10 @@
-"""Embedding client using huggingface_hub.InferenceClient to talk to a local TEI endpoint."""
+"""Embedding client using httpx to talk to a local TEI endpoint."""
 
 from __future__ import annotations
 
 import httpx
-from huggingface_hub import InferenceClient
 
+from app.clients.base import BaseClientManager
 from app.config.app_config import app_config
 from app.core.logging import logger
 
@@ -14,7 +14,6 @@ class LocalTEIEmbeddings:
 
     def __init__(self, url: str, timeout: float = 120.0):
         self._url = url.rstrip("/")
-        self._client = InferenceClient(model=url, token="")
         self._timeout = timeout
 
     def embed_query(self, text: str) -> list[float]:
@@ -62,22 +61,18 @@ class LocalTEIEmbeddings:
                 raise
 
 
-class EmbeddingClientManager:
+class EmbeddingClientManager(BaseClientManager):
     def __init__(self, config):
-        self.config = config
+        super().__init__(config)
         self.client: LocalTEIEmbeddings | None = None
 
     def init(self):
-        url = f"http://{self.config.host}:{self.config.port}"
+        url = self._url()
         self.client = LocalTEIEmbeddings(url)
         logger.info(f"Embedding client initialized: {url}")
 
+    async def close(self):
+        pass
+
 
 embedding_client_manager = EmbeddingClientManager(app_config.embedding)
-
-if __name__ == '__main__':
-    client = EmbeddingClientManager(app_config.embedding)
-    client.init()
-    query = client.client.embed_query("hello world")
-    print(len(query))
-    print(query)

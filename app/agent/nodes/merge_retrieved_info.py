@@ -1,6 +1,7 @@
 from langgraph.runtime import Runtime
 
 from app.agent.context import DataAgentContext
+from app.agent.converters import column_mysql_to_qdrant, column_qdrant_to_state, column_mysql_to_state
 from app.agent.state import DataAgentState, TableInfoState, ColumnInfoState, MetricInfoState
 from app.core.logging import logger
 from app.models.mysql.column_info_mysql import ColumnInfoMySQL
@@ -30,14 +31,14 @@ async def merge_retrieved_info(state: DataAgentState, runtime: Runtime[DataAgent
             column_info: ColumnInfoMySQL = await meta_mysql_repository.get_column_by_id(column_id)
             if value not in column_info.examples:
                 column_info.examples.append(value)
-            id_to_column_map[column_id] = _convert_column_info_from_mysql_to_qdrant(column_info)
+            id_to_column_map[column_id] = column_mysql_to_qdrant(column_info)
 
     for retrieved_metric in retrieved_metrics:
         relevant_columns = retrieved_metric['relevant_columns']
         for column_id in relevant_columns:
             if column_id not in id_to_column_map:
                 column_info: ColumnInfoMySQL = await meta_mysql_repository.get_column_by_id(column_id)
-                id_to_column_map[column_id] = _convert_column_info_from_mysql_to_qdrant(column_info)
+                id_to_column_map[column_id] = column_mysql_to_qdrant(column_info)
 
     table_to_columns_map: dict[str, list[ColumnInfoQdrant]] = {}
     for column in id_to_column_map.values():
@@ -50,14 +51,14 @@ async def merge_retrieved_info(state: DataAgentState, runtime: Runtime[DataAgent
         column_states: list[ColumnInfoState] = []
         column_state_ids: list[str] = []
         for column in columns:
-            column_state = _convert_column_info_from_qdrant_to_state(column)
+            column_state = column_qdrant_to_state(column)
             column_state_ids.append(column['id'])
             column_states.append(column_state)
 
         key_columns = await meta_mysql_repository.get_key_columns_by_table_id(table_id)
         for key_column in key_columns:
             if key_column.id not in column_state_ids:
-                key_column_state = _convert_column_info_from_mysql_to_state(key_column)
+                key_column_state = column_mysql_to_state(key_column)
                 column_states.append(key_column_state)
 
         table_info_state = TableInfoState(
@@ -78,38 +79,3 @@ async def merge_retrieved_info(state: DataAgentState, runtime: Runtime[DataAgent
 
     logger.info(f"召回信息合并成功")
     return {"table_infos": table_infos, "metric_infos": metric_infos}
-
-
-def _convert_column_info_from_mysql_to_qdrant(column_info: ColumnInfoMySQL) -> ColumnInfoQdrant:
-    return ColumnInfoQdrant(
-        id=column_info.id,
-        name=column_info.name,
-        type=column_info.type,
-        role=column_info.role,
-        examples=column_info.examples,
-        description=column_info.description,
-        alias=column_info.alias,
-        table_id=column_info.table_id
-    )
-
-
-def _convert_column_info_from_qdrant_to_state(column_info: ColumnInfoQdrant) -> ColumnInfoState:
-    return ColumnInfoState(
-        name=column_info['name'],
-        type=column_info['type'],
-        role=column_info['role'],
-        description=column_info['description'],
-        alias=column_info['alias'],
-        examples=column_info['examples']
-    )
-
-
-def _convert_column_info_from_mysql_to_state(column_info: ColumnInfoMySQL) -> ColumnInfoState:
-    return ColumnInfoState(
-        name=column_info.name,
-        type=column_info.type,
-        role=column_info.role,
-        description=column_info.description,
-        alias=column_info.alias,
-        examples=column_info.examples
-    )

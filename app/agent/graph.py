@@ -1,5 +1,3 @@
-import asyncio
-
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 
@@ -19,16 +17,6 @@ from app.agent.nodes.metric_recall import metric_recall
 from app.agent.nodes.validate_sql import validate_sql
 from app.agent.nodes.value_recall import value_recall
 from app.agent.state import DataAgentState
-from app.clients.embedding_client import embedding_client_manager
-from app.clients.es_client import es_client_manager
-from app.clients.mysql_client import meta_client_manager, dw_client_manager
-from app.clients.qdrant_client import qdrant_client_manager
-from app.core.context import request_id_ctx_var
-from app.repositories.es.value_es_repository import ValueESRepository
-from app.repositories.mysql.dw_mysql_repository import DWMySQLRepository
-from app.repositories.mysql.meta_mysql_repository import MetaMySQLRepository
-from app.repositories.qdrant.column_repository_qdrant import ColumnQdrantRepository
-from app.repositories.qdrant.metric_repository_qdrant import MetricQdrantRepository
 
 graph_builder = StateGraph(state_schema=DataAgentState, context_schema=DataAgentContext)
 
@@ -67,39 +55,3 @@ graph_builder.add_conditional_edges("validate_sql",
 graph_builder.add_edge("execute_sql", "format_result")
 graph_builder.add_edge("format_result", END)
 graph = graph_builder.compile()
-
-
-async def main():
-    request_id_ctx_var.set("1")
-    state = DataAgentState(query="统计一下2025年1月份各品类的销售额占比")
-
-    qdrant_client_manager.init()
-    column_qdrant_repository = ColumnQdrantRepository(qdrant_client_manager.client)
-    metric_qdrant_repository = MetricQdrantRepository(qdrant_client_manager.client)
-
-    embedding_client_manager.init()
-    embedding_client = embedding_client_manager.client
-
-    es_client_manager.init()
-    value_es_repository = ValueESRepository(es_client_manager.client)
-
-    meta_client_manager.init()
-    dw_client_manager.init()
-    async with (meta_client_manager.session_factory() as meta_session,
-                dw_client_manager.session_factory() as dw_session):
-        meta_mysql_repository = MetaMySQLRepository(meta_session)
-        dw_mysql_repository = DWMySQLRepository(dw_session)
-        context = DataAgentContext(
-            metric_qdrant_repository=metric_qdrant_repository,
-            value_es_repository=value_es_repository,
-            column_qdrant_repository=column_qdrant_repository,
-            embedding_client=embedding_client,
-            meta_mysql_repository=meta_mysql_repository,
-            dw_mysql_repository=dw_mysql_repository)
-
-        async for chunk in graph.astream(input=state, context=context, stream_mode="custom"):
-            print(chunk)
-
-
-if __name__ == "__main__":
-    print(graph.get_graph().draw_mermaid())

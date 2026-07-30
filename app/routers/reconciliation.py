@@ -3,44 +3,21 @@
 from __future__ import annotations
 
 import datetime
-import time
-from decimal import Decimal
-from typing import Any
 
 from fastapi import APIRouter, Request, HTTPException
 
 from app.database import fetch_one, insert, execute
 from app.response import ok
 from app.idempotency import check_idempotency, record_request
+from app.utils import gen_no, resolve_employee_id, serialize_row
 
 router = APIRouter(tags=["reconciliation"])
-
-
-def gen_no(prefix: str) -> str:
-    return f"{prefix}{int(time.time() * 1000000)}"
-
-
-def _ser(v: Any) -> Any:
-    if isinstance(v, (Decimal, datetime.datetime, datetime.date)):
-        return str(v)
-    return v
-
-
-def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
-    return {k: _ser(v) for k, v in row.items()}
 
 
 def _idem(request: Request) -> tuple[str, str]:
     channel_code = request.headers.get("X-Channel-Code", "")
     operator_no = request.headers.get("X-Operator-No", "system")
     return channel_code, operator_no
-
-
-def _resolve_employee_id(employee_no: str) -> int | None:
-    if not employee_no:
-        return None
-    row = fetch_one("SELECT id FROM dim_employee WHERE employee_no = %s", (employee_no,))
-    return row["id"] if row else None
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +74,7 @@ async def create_fund_freeze(request: Request):
         (new_frozen, new_available, now, account_id),
     )
 
-    emp_id = _resolve_employee_id(operator_no)
+    emp_id = resolve_employee_id(operator_no)
     operation_no = gen_no("FRZOP")
     insert(
         """
@@ -113,7 +90,7 @@ async def create_fund_freeze(request: Request):
     )
 
     freeze_row = fetch_one("SELECT * FROM fund_freeze WHERE id = %s", (freeze_id,))
-    response = ok(_serialize_row(freeze_row))
+    response = ok(serialize_row(freeze_row))
     record_request(request_no, channel_code, operator_no, body, response)
     return response
 
@@ -154,7 +131,7 @@ async def create_freeze_operation(freeze_no: str, request: Request):
     current_frozen = float(account["frozen_amount"])
     current_available = float(account["available_amount"])
 
-    emp_id = _resolve_employee_id(operator_no)
+    emp_id = resolve_employee_id(operator_no)
     operation_no = gen_no("FRZOP")
     before_frozen = current_frozen
     after_frozen = current_frozen - float(amount)
@@ -189,7 +166,7 @@ async def create_freeze_operation(freeze_no: str, request: Request):
         "SELECT * FROM fund_freeze_operation WHERE freeze_id = %s ORDER BY id DESC LIMIT 1",
         (freeze_id,),
     )
-    result = _serialize_row(operation_row)
+    result = serialize_row(operation_row)
     result["freeze_status"] = "released"
     response = ok(result)
     record_request(request_no, channel_code, operator_no, body, response)
@@ -230,7 +207,7 @@ async def create_reconciliation_batch(request: Request):
     )
 
     batch_row = fetch_one("SELECT * FROM reconciliation_batch WHERE id = %s", (batch_id,))
-    response = ok(_serialize_row(batch_row))
+    response = ok(serialize_row(batch_row))
     record_request(request_no, idem_channel, idem_operator, body, response)
     return response
 
@@ -275,7 +252,7 @@ async def create_reconciliation_result(request: Request):
     )
 
     result_row = fetch_one("SELECT * FROM reconciliation_result WHERE id = %s", (result_id,))
-    response = ok(_serialize_row(result_row))
+    response = ok(serialize_row(result_row))
     record_request(request_no, channel_code, operator_no, body, response)
     return response
 
@@ -324,7 +301,7 @@ async def create_reconciliation_adjustment(request: Request):
     )
 
     adjustment_row = fetch_one("SELECT * FROM reconciliation_adjustment WHERE id = %s", (adjustment_id,))
-    response = ok(_serialize_row(adjustment_row))
+    response = ok(serialize_row(adjustment_row))
     record_request(request_no, channel_code, operator_no, body, response)
     return response
 
@@ -350,7 +327,7 @@ async def approve_reconciliation_adjustment(adjustment_no: str, request: Request
         raise HTTPException(status_code=404, detail="Adjustment not found")
     adjustment_id = adjustment["id"]
 
-    emp_id = _resolve_employee_id(operator_no)
+    emp_id = resolve_employee_id(operator_no)
     now = datetime.datetime.now()
     execute(
         "UPDATE reconciliation_adjustment SET adjustment_status = %s, "

@@ -5,6 +5,7 @@ from datetime import datetime, date
 
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
+from app.agent.converters import column_mysql_to_qdrant, metric_mysql_to_qdrant
 from app.config.config_loader import load_config
 from app.config.meta_config import MetaConfig, TableConfig, MetricConfig
 from app.core.logging import logger
@@ -79,27 +80,6 @@ class MetaKnowledgeService:
 
         return table_infos, column_infos
 
-    def _convert_column_info_from_mysql_to_qdrant(self, column_info: ColumnInfoMySQL) -> ColumnInfoQdrant:
-        return ColumnInfoQdrant(
-            id=column_info.id,
-            name=column_info.name,
-            type=column_info.type,
-            role=column_info.role,
-            examples=column_info.examples,
-            description=column_info.description,
-            alias=column_info.alias,
-            table_id=column_info.table_id
-        )
-
-    def _convert_metric_info_from_mysql_to_qdrant(self, metric_info: MetricInfoMySQL) -> MetricInfoQdrant:
-        return MetricInfoQdrant(
-            id=metric_info.id,
-            name=metric_info.name,
-            description=metric_info.description,
-            relevant_columns=metric_info.relevant_columns,
-            alias=metric_info.alias
-        )
-
     async def _sync_columns_to_qdrant(self, columns: list[ColumnInfoMySQL]):
         # 创建qdrant collection
         await self.column_qdrant_repository.ensure_collection()
@@ -109,14 +89,14 @@ class MetaKnowledgeService:
             records.append(
                 {'id': uuid.uuid4(),
                  'embedding_text': column_info.name,
-                 'payload': self._convert_column_info_from_mysql_to_qdrant(column_info)})
+                 'payload': column_mysql_to_qdrant(column_info)})
             records.append(
                 {'id': uuid.uuid4(), 'embedding_text': column_info.description,
-                 'payload': self._convert_column_info_from_mysql_to_qdrant(column_info)})
+                 'payload': column_mysql_to_qdrant(column_info)})
             for alias in column_info.alias:
                 records.append(
                     {'id': uuid.uuid4(), 'embedding_text': alias,
-                     'payload': self._convert_column_info_from_mysql_to_qdrant(column_info)})
+                     'payload': column_mysql_to_qdrant(column_info)})
 
         ids = [uuid.uuid4() for _ in records]
         embeddings = []
@@ -196,16 +176,16 @@ class MetaKnowledgeService:
             records.append(
                 {'id': uuid.uuid4(),
                  'embedding_text': metric_info.name,
-                 'payload': self._convert_metric_info_from_mysql_to_qdrant(metric_info)})
+                 'payload': metric_mysql_to_qdrant(metric_info)})
             records.append(
                 {'id': uuid.uuid4(),
                  'embedding_text': metric_info.description,
-                 'payload': self._convert_metric_info_from_mysql_to_qdrant(metric_info)})
+                 'payload': metric_mysql_to_qdrant(metric_info)})
             for alias in metric_info.alias:
                 records.append(
                     {'id': uuid.uuid4(),
                      'embedding_text': alias,
-                     'payload': self._convert_metric_info_from_mysql_to_qdrant(metric_info)})
+                     'payload': metric_mysql_to_qdrant(metric_info)})
         ids = [uuid.uuid4() for _ in records]
         embeddings = []
         embedding_batch_size = 4

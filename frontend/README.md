@@ -33,7 +33,10 @@ npm run build
 确保后端服务已启动：
 ```bash
 cd ..
-python main.py
+# 首次启动需先初始化（建库建表 + 生成数据 + 构建元知识库）
+.venv\Scripts\python.exe -m app.scripts.build_meta_knowledge -c conf/meta_config.yaml --init
+# 启动服务
+.venv\Scripts\python.exe main.py
 ```
 
 后端服务运行在 `http://127.0.0.1:8000`，前端通过 Vite 代理转发 `/api` 请求。

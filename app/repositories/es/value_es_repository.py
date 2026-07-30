@@ -1,8 +1,5 @@
-import asyncio
-
 from elasticsearch import AsyncElasticsearch
 
-from app.clients.es_client import es_client_manager
 from app.models.es.value_info_es import ValueInfoES
 
 
@@ -68,16 +65,3 @@ class ValueESRepository:
             results.append(source)
 
         return results
-
-
-if __name__ == '__main__':
-    async def test():
-        es_client_manager.init()
-        es_client = es_client_manager.client
-        full_text_repository = ValueESRepository(es_client)
-        query = "统计一下手机产品的销量"
-        print(await full_text_repository.query(query=query))
-        await es_client_manager.close()
-
-
-    asyncio.run(test())

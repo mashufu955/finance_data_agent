@@ -22,4 +22,5 @@ async def lifespan(app: FastAPI):
     await meta_client_manager.close()
     await es_client_manager.close()
     await qdrant_client_manager.close()
+    await embedding_client_manager.close()
 

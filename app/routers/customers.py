@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import time
 from datetime import date, datetime
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
 from app.database import execute, fetch_all, fetch_one, insert
 from app.idempotency import check_idempotency, record_request
 from app.response import list_ok, ok
+from app.utils import gen_no, resolve_employee_id, serialize_deep
 
 router = APIRouter(prefix="/api/v1", tags=["customers"])
 
@@ -18,22 +17,6 @@ router = APIRouter(prefix="/api/v1", tags=["customers"])
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _serialize(data: Any) -> Any:
-    """Convert datetime/date/Decimal values to plain strings for JSON safety."""
-    if isinstance(data, list):
-        for row in data:
-            _serialize(row)
-        return data
-    if isinstance(data, dict):
-        for key, value in data.items():
-            if isinstance(value, (datetime, date)):
-                data[key] = str(value)
-            elif isinstance(value, (list, dict)):
-                _serialize(value)
-        return data
-    return data
-
 
 def _get_bearer_token(request: Request) -> str:
     auth = request.headers.get("Authorization", "")
@@ -53,18 +36,6 @@ def _idempotency_params(request: Request, body: dict) -> tuple[str, str, str, di
     channel_code = request.headers.get("X-Channel-Code", "")
     operator_no = request.headers.get("X-Operator-No", "")
     return request_no, channel_code, operator_no, body
-
-
-def gen_no(prefix: str) -> str:
-    return f"{prefix}{int(time.time() * 1000000)}"
-
-
-def _resolve_employee_id(employee_no: str) -> int | None:
-    """Resolve employee number to dim_employee.id."""
-    if not employee_no:
-        return None
-    row = fetch_one("SELECT id FROM dim_employee WHERE employee_no = %s", (employee_no,))
-    return row["id"] if row else None
 
 
 # ---------------------------------------------------------------------------

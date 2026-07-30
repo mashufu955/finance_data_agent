@@ -1,7 +1,5 @@
 from typing import Any, TypedDict
 
-import yaml
-
 from app.models.es.value_info_es import ValueInfoES
 from app.models.qdrant.column_info_qdrant import ColumnInfoQdrant
 from app.models.qdrant.metric_info_qdrant import MetricInfoQdrant
@@ -64,40 +62,3 @@ class DataAgentState(TypedDict):
 
     query_result: list[dict]  # SQL执行结果（原始数据行）
     result_summary: str  # 自然语言结果说明（由 format_result 生成）
-
-
-if __name__ == '__main__':
-    columns = [
-        ColumnInfoState(
-            name="id",
-            type="int",
-            role="primary_key",
-            description="编号",
-            alias=["编号"],
-            examples=["1", "2", "3"]
-        ),
-        ColumnInfoState(
-            name="name",
-            type="varchar",
-            role="dimension",
-            description="名称",
-            alias=["名称"],
-            examples=["张三", "李四", "王五"]
-        ),
-        ColumnInfoState(
-            name="age",
-            type="int",
-            role="measure",
-            description="年龄",
-            alias=["年龄"],
-            examples=["18", "19", "20"]
-        )
-    ]
-    table = TableInfoState(
-        name="user",
-        role="fact",
-        description="用户信息",
-        columns=columns
-    )
-
-    print(yaml.safe_dump(table, allow_unicode=True, sort_keys=False))

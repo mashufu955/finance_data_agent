@@ -44,23 +44,74 @@
 - 还款完成后结清借据并释放相关风险状态
 
 ## 快速开始
-启动 MySQL 数据库
 
-配置数据库连接参数 [`.env`](./.env)
+### 1. 启动基础设施
 
 ```bash
-uv sync  # 安装依赖
-
-uv run init_db.py  # 初始化数据库
-uv run -m generate.main --profile full  # 生成数据
-
-uv run -m app.main  # 启动服务
+cd docker_finance
+docker compose up -d
 ```
 
-服务启动后访问 FastAPI 文档：
+等待 MySQL(3306)、Qdrant(6333)、TEI Embedding(8081)、Elasticsearch(9200) 全部就绪。
 
-- Swagger UI：`http://127.0.0.1:8081/docs`
-- OpenAPI JSON：`http://127.0.0.1:8000/openapi.json`
+### 2. 安装依赖
+
+```bash
+uv sync
+```
+
+### 3. 初始化数据与元知识库
+
+新容器首次启动或清空后重建，使用 `--init` 一键完成建库建表、生成测试数据、构建元知识库：
+
+```bash
+.venv\Scripts\python.exe -m app.scripts.build_meta_knowledge -c conf/meta_config.yaml --init
+```
+
+如需全量数据，加 `--profile full`。仅重建元知识库（不重建表和数据）：
+
+```bash
+.venv\Scripts\python.exe -m app.scripts.build_meta_knowledge -c conf/meta_config.yaml
+```
+
+### 4. 启动服务
+
+```bash
+.venv\Scripts\python.exe main.py
+```
+
+`main.py` 会先检查 Docker 服务状态，通过后自动启动 FastAPI。
+
+服务启动后访问：
+
+- Swagger UI：`http://127.0.0.1:8000/docs`
+- 智能问数 API：`POST http://127.0.0.1:8000/api/query`
+- 前端界面：`cd frontend && npm install && npm run dev`（访问 `http://127.0.0.1:5173`）
+
+### 项目结构
+
+```
+app/
+  agent/          # LangGraph Agent（查询分类、关键词提取、向量/全文召回、SQL生成/校验/执行）
+  api/            # AI 问数 API 路由与依赖注入
+  clients/        # 外部服务客户端管理（MySQL/ES/Qdrant/Embedding），统一 BaseClientManager 基类
+  config/         # 配置加载（app_config.yaml + meta_config.yaml）
+  core/           # 请求 ID 中间件、日志、生命周期管理
+  models/         # 数据模型（MySQL ORM / Qdrant TypedDict / ES TypedDict）
+  prompt/         # LLM 提示词模板（.prompt 文件）
+  repositories/   # 数据访问层（MySQL / Qdrant 向量 / ES 全文）
+  routers/        # CRUD 业务 API 路由（12 个业务域）
+  schemas/        # Pydantic 请求模型
+  scripts/        # 运维脚本（build_meta_knowledge.py）
+  service/        # 业务服务层（chat_service / meta_knowledge_service）
+  utils.py        # 跨路由共享工具函数（序列化、编号生成、员工查询）
+  database.py     # 同步 PyMySQL 模块（供 CRUD 路由使用）
+  main.py         # FastAPI 应用入口
+generate/         # 测试数据生成器（9 层分层生成）
+frontend/         # Vue 3 前端（项目概览 + 智能问数聊天）
+conf/             # 配置文件（app_config.yaml / meta_config.yaml）
+docker_finance/   # Docker Compose 编排（MySQL/Qdrant/TEI/ES）
+```
 
 ## 数据定义
 ### 通用约束

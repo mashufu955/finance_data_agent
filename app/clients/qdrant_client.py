@@ -1,19 +1,17 @@
 from qdrant_client import AsyncQdrantClient
 
+from app.clients.base import BaseClientManager
 from app.config.app_config import QdrantConfig, app_config
 
 
-class QdrantClientManager:
+class QdrantClientManager(BaseClientManager):
     def __init__(self, config: QdrantConfig):
-        self.config: QdrantConfig = config
+        super().__init__(config)
         self.client: AsyncQdrantClient | None = None
-
-    def _get_url(self):
-        return f"http://{self.config.host}:{self.config.port}"
 
     def init(self):
         self.client = AsyncQdrantClient(
-            url=f"http://{self.config.host}:{self.config.port}",
+            url=self._url(),
             trust_env=False,
             check_compatibility=False,
         )

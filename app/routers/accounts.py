@@ -3,48 +3,21 @@
 from __future__ import annotations
 
 import datetime
-import time
-from decimal import Decimal
-from typing import Any
 
 from fastapi import APIRouter, Request, HTTPException, Query
 
 from app.database import fetch_one, fetch_all, insert, execute
 from app.response import ok, list_ok
 from app.idempotency import check_idempotency, record_request
+from app.utils import gen_no, resolve_employee_id, serialize_row, serialize_list
 
 router = APIRouter(tags=["accounts"])
-
-
-def gen_no(prefix: str) -> str:
-    return f"{prefix}{int(time.time() * 1000000)}"
-
-
-def _ser(v: Any) -> Any:
-    if isinstance(v, (Decimal, datetime.datetime, datetime.date)):
-        return str(v)
-    return v
-
-
-def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
-    return {k: _ser(v) for k, v in row.items()}
-
-
-def _serialize_list(rows: list[dict]) -> list[dict]:
-    return [_serialize_row(r) for r in rows]
 
 
 def _idem(request: Request) -> tuple[str, str, str]:
     channel_code = request.headers.get("X-Channel-Code", "")
     operator_no = request.headers.get("X-Operator-No", "system")
     return channel_code, operator_no
-
-
-def _resolve_employee_id(employee_no: str) -> int | None:
-    if not employee_no:
-        return None
-    row = fetch_one("SELECT id FROM dim_employee WHERE employee_no = %s", (employee_no,))
-    return row["id"] if row else None
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +86,7 @@ async def create_account(request: Request):
          str(open_amount), str(open_amount), str(open_amount), now),
     )
 
-    emp_id = _resolve_employee_id(operator_no)
+    emp_id = resolve_employee_id(operator_no)
     insert(
         """
         INSERT INTO bank_account_status_history
@@ -137,7 +110,7 @@ async def get_account(account_no: str):
     row = fetch_one("SELECT * FROM bank_account WHERE account_no = %s", (account_no,))
     if not row:
         raise HTTPException(status_code=404, detail="Account not found")
-    return ok(_serialize_row(row))
+    return ok(serialize_row(row))
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +146,7 @@ async def create_card(account_no: str, request: Request):
     )
 
     card_row = fetch_one("SELECT * FROM bank_card WHERE id = %s", (card_id,))
-    response = ok(_serialize_row(card_row))
+    response = ok(serialize_row(card_row))
     record_request(request_no, channel_code, operator_no, body, response)
     return response
 
@@ -206,7 +179,7 @@ async def change_account_status(account_no: str, request: Request):
     )
     change_seq = (seq_row["max_seq"] or 0) + 1
 
-    emp_id = _resolve_employee_id(operator_no)
+    emp_id = resolve_employee_id(operator_no)
     now = datetime.datetime.now()
 
     insert(

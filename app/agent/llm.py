@@ -1,5 +1,3 @@
-import asyncio
-
 import httpx
 from langchain_openai import ChatOpenAI
 
@@ -20,10 +18,3 @@ llm = ChatOpenAI(
     temperature=0,
     http_async_client=http_async_client,
 )
-
-if __name__ == '__main__':
-    async def test():
-        print(await llm.ainvoke("中国的首都是哪里？"))
-
-
-    print(asyncio.run(test()))
