@@ -166,6 +166,7 @@ tests/
 
 # Large model files
 docker/embedding/bge-large-zh-v1.5/pytorch_model.bin
+docker_finance/embedding/bge-large-zh-v1.5/pytorch_model.bin
 
 # IDE
 .idea/
@@ -175,3 +176,6 @@ uv.lock
 
 # Reports
 coverage_report.txt
+/tests/
+/docs/
+/logs/
